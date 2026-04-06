@@ -5,7 +5,7 @@ Public serializers: minimal fields for the React frontend.
 Admin serializers: all fields + write support.
 """
 from rest_framework import serializers
-from .models import Project, Skill, Experience, Certification, Message, SiteSettings
+from .models import Project, Skill, Experience, Certification, Message, SiteSettings, About
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -113,4 +113,17 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteSettings
         fields = ['section_visibility', 'updated_at']
+        read_only_fields = ['updated_at']
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ABOUT
+# ─────────────────────────────────────────────────────────────────────────────
+class AboutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = About
+        fields = [
+            'id', 'name', 'tagline', 'roles', 'availability',
+            'photo', 'bio', 'stats', 'info', 'social', 'updated_at',
+        ]
         read_only_fields = ['updated_at']

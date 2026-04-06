@@ -46,6 +46,7 @@ from .views import (
     MessageListView,
     MessageDetailView,
     SiteSettingsView,
+    AboutView,
 )
 
 urlpatterns = [
@@ -78,6 +79,9 @@ urlpatterns = [
     path('messages/admin/',        MessageListView.as_view(),   name='message-list'),
     path('messages/admin/<int:pk>/', MessageDetailView.as_view(), name='message-detail'),
 
-    # ── Settings ───────────────────────────────────────────────
+    # ── Settings ───────────────────────────────────────────────────────
     path('settings/', SiteSettingsView.as_view(), name='settings'),
+
+    # ── About ──────────────────────────────────────────────────────────
+    path('about/', AboutView.as_view(), name='about'),
 ]

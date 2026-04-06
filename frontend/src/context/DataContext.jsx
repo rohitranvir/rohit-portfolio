@@ -25,12 +25,13 @@ export function DataProvider({ children }) {
         setError(null);
         try {
             // Fetch all data from Django API in parallel
-            const [projects, skills, experience, certifications, settings] = await Promise.all([
+            const [projects, skills, experience, certifications, settings, about] = await Promise.all([
                 api.get('/projects/'),
                 api.get('/skills/'),
                 api.get('/experience/'),
                 api.get('/certifications/'),
                 api.get('/settings/'),
+                api.get('/about/'),
             ]);
 
             setData(prev => ({
@@ -40,6 +41,7 @@ export function DataProvider({ children }) {
                 experience: experience.data,
                 certifications: certifications.data,
                 settings: settings.data,       // { section_visibility: { hero: true, ... } }
+                about: about.data,
             }));
         } catch (err) {
             console.warn('[DataContext] Django API unavailable — falling back to static JSON', err.message);

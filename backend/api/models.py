@@ -200,3 +200,35 @@ class SiteSettings(models.Model):
             }
         )
         return obj
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ABOUT (Singleton)
+# ─────────────────────────────────────────────────────────────────────────────
+class About(models.Model):
+    """
+    Singleton model — only one row should exist (id=1).
+    Stores personal info displayed on the About section.
+    """
+    name = models.CharField(max_length=100, default='')
+    tagline = models.CharField(max_length=300, default='')
+    roles = models.JSONField(default=list, help_text='["Role 1", "Role 2"]')
+    availability = models.CharField(max_length=200, default='')
+    photo = models.CharField(max_length=300, default='', blank=True)
+    bio = models.JSONField(default=list, help_text='Array of paragraph strings')
+    stats = models.JSONField(default=dict, help_text='{"projects": "4+", "internships": "2", "cgpa": "7.5"}')
+    info = models.JSONField(default=dict, help_text='{"location": "...", "degree": "...", ...}')
+    social = models.JSONField(default=dict, help_text='{"github": "...", "linkedin": "...", ...}')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'About'
+        verbose_name_plural = 'About'
+
+    def __str__(self):
+        return f'About — {self.name}'
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1, defaults={'name': 'Your Name'})
+        return obj

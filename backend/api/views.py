@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import Project, Skill, Experience, Certification, Message, SiteSettings
+from .models import Project, Skill, Experience, Certification, Message, SiteSettings, About
 from .serializers import (
     ProjectSerializer,
     SkillSerializer,
@@ -21,6 +21,7 @@ from .serializers import (
     MessageSerializer,
     MessageCreateSerializer,
     SiteSettingsSerializer,
+    AboutSerializer,
 )
 
 
@@ -217,6 +218,40 @@ class SiteSettingsView(APIView):
     def patch(self, request):
         settings = SiteSettings.get_solo()
         serializer = SiteSettingsSerializer(settings, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ABOUT
+# ─────────────────────────────────────────────────────────────────────────────
+class AboutView(APIView):
+    """
+    GET  /api/about/   → public — personal info for the About section
+    PUT  /api/about/   → admin — update personal info
+    """
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def get(self, request):
+        about = About.get_solo()
+        serializer = AboutSerializer(about)
+        return Response(serializer.data)
+
+    def put(self, request):
+        about = About.get_solo()
+        serializer = AboutSerializer(about, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def patch(self, request):
+        about = About.get_solo()
+        serializer = AboutSerializer(about, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
