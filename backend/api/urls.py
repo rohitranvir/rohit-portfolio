@@ -35,6 +35,7 @@ from .views import (
     AdminLoginView,
     ProjectListCreateView,
     ProjectDetailView,
+    ProjectBySlugView,
     SkillsGroupedView,
     SkillListCreateView,
     SkillDetailView,
@@ -58,6 +59,7 @@ urlpatterns = [
     # ── Projects ───────────────────────────────────────────────
     path('projects/',       ProjectListCreateView.as_view(), name='project-list'),
     path('projects/<int:pk>/', ProjectDetailView.as_view(),  name='project-detail'),
+    path('projects/slug/<slug:slug>/', ProjectBySlugView.as_view(), name='project-by-slug'),
 
     # ── Skills ─────────────────────────────────────────────────
     # Public grouped response (used by React frontend)

@@ -45,6 +45,20 @@ class Project(models.Model):
     )
     featured = models.BooleanField(default=False)
     visible = models.BooleanField(default=True)
+    slug = models.SlugField(unique=True, null=True, blank=True)
+
+    # NEW Case Study fields
+    tagline = models.CharField(max_length=200, blank=True, help_text="One line pitch")
+    problem_statement = models.TextField(blank=True, help_text="What problem does it solve?")
+    target_audience = models.TextField(blank=True)
+    architecture_diagram = models.TextField(blank=True, help_text="ASCII diagram or SVG code")
+    tech_decisions = models.JSONField(default=list, blank=True, help_text="[{question, answer}]")
+    key_features = models.JSONField(default=list, blank=True, help_text="[{icon, title, description}]")
+    challenges = models.JSONField(default=list, blank=True, help_text="[{problem, solution}]")
+    metrics = models.JSONField(default=list, blank=True, help_text="[{value, label}]")
+    roadmap = models.JSONField(default=list, blank=True, help_text="[{step, description}]")
+    demo_video_url = models.URLField(blank=True, help_text="YouTube embed URL")
+    screenshots = models.JSONField(default=list, blank=True, help_text="[{url, caption}]")
     order = models.PositiveSmallIntegerField(
         default=0,
         help_text='Display order — lower numbers appear first'
@@ -54,6 +68,12 @@ class Project(models.Model):
 
     class Meta:
         ordering = ['order', '-created_at']
+
+    def save(self, *args, **kwargs):
+        from django.utils.text import slugify
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title

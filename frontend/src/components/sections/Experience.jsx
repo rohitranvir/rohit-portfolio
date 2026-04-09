@@ -8,8 +8,9 @@ export default function Experience() {
     const [activeTab, setActiveTab] = useState('Experience');
     const [ref, visible] = useScrollReveal(0.05);
 
-    const experienceData = data?.experience?.experience || [];
-    const educationData = data?.experience?.education || [];
+    const expList = Array.isArray(data?.experience) ? data.experience : [];
+    const experienceData = expList.filter(e => e.exp_type !== 'education');
+    const educationData = expList.filter(e => e.exp_type === 'education');
 
     return (
         <section id="experience" style={{ padding: '120px 24px', maxWidth: 1000, margin: '0 auto' }}>
@@ -108,16 +109,22 @@ export default function Experience() {
                                                 {exp.company} <span style={{ color: 'var(--text-muted)' }}>|</span> {exp.duration}
                                             </div>
                                             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                                {exp.description.map((item, i) => (
+                                                {Array.isArray(exp.description) ? exp.description.map((item, i) => (
                                                     <li key={i} style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1.6, display: 'flex', gap: 12 }}>
                                                         <span style={{ color: 'var(--gold)', flexShrink: 0 }}>•</span> {item}
                                                     </li>
-                                                ))}
+                                                )) : (
+                                                    <li style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1.6, display: 'flex', gap: 12 }}>
+                                                        <span style={{ color: 'var(--gold)', flexShrink: 0 }}>•</span> {exp.description}
+                                                    </li>
+                                                )}
                                             </ul>
-                                            <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                                <span className="font-mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>Tools:</span>
-                                                {exp.tools.join(', ')}
-                                            </div>
+                                            {exp.tools && exp.tools.length > 0 && (
+                                                <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                                    <span className="font-mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>Tools:</span>
+                                                    {exp.tools.join(', ')}
+                                                </div>
+                                            )}
                                         </motion.div>
                                     </motion.div>
                                 ))}
@@ -148,18 +155,18 @@ export default function Experience() {
                                         </div>
                                         <div style={{ flex: 1 }}>
                                             <h3 className="font-body" style={{ fontSize: '1.2rem', fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8, lineHeight: 1.4 }}>
-                                                {edu.degree}
+                                                {edu.role}
                                             </h3>
                                             <p className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--gold)', marginBottom: 12 }}>
-                                                {edu.specialization}
+                                                {Array.isArray(edu.description) && edu.description.length > 0 ? edu.description[0] : ''}
                                             </p>
                                             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: 16 }}>
-                                                {edu.institution}
+                                                {edu.company}
                                             </p>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                                                <span className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{edu.year}</span>
+                                                <span className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{edu.duration}</span>
                                                 <span className="font-mono" style={{ fontSize: '0.85rem', color: 'var(--text-primary)', background: 'rgba(201, 168, 76, 0.1)', padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)' }}>
-                                                    {edu.score}
+                                                    {Array.isArray(edu.description) && edu.description.length > 1 ? edu.description[1] : (Array.isArray(edu.description) && edu.description.length > 0 ? edu.description[0] : '')}
                                                 </span>
                                             </div>
                                         </div>

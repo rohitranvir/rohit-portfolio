@@ -17,8 +17,14 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'description', 'short_desc', 'full_desc',
             'category', 'tech', 'github_url', 'live_url',
-            'highlight', 'featured', 'visible', 'order',
+            'highlight', 'featured', 'visible', 'order', 'slug',
         ]
+
+
+class ProjectDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = '__all__'
 
 
 # ─────────────────────────────────────────────────────────────────────────────

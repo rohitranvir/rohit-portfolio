@@ -14,6 +14,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import Project, Skill, Experience, Certification, Message, SiteSettings, About
 from .serializers import (
     ProjectSerializer,
+    ProjectDetailSerializer,
     SkillSerializer,
     SkillsGroupedSerializer,
     ExperienceSerializer,
@@ -77,8 +78,21 @@ class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
     DELETE /api/projects/<id>/    (admin)
     """
     queryset = Project.objects.all()
-    serializer_class = ProjectSerializer
+    serializer_class = ProjectDetailSerializer
     permission_classes = [IsAdminOrReadOnly]
+
+
+class ProjectBySlugView(generics.RetrieveUpdateAPIView):
+    serializer_class = ProjectDetailSerializer
+    lookup_field = 'slug'
+    
+    def get_queryset(self):
+        return Project.objects.all()
+    
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
