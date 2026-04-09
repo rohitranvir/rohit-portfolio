@@ -1,10 +1,8 @@
 """
 Django settings for portfolio_backend project.
-
-Reads ALL sensitive values from environment variables.
-Copy .env.example → .env and fill in real values before running.
 """
 import os
+import dj_database_url
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -14,21 +12,18 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ─── Security ────────────────────────────────────────────────────────────────
-# Fix 13: SECRET_KEY must come from env — crash on startup if missing
 SECRET_KEY = os.environ.get('SECRET_KEY')
 if not SECRET_KEY:
-    raise ValueError(
-        'The SECRET_KEY environment variable is not set. '
-        'Copy .env.example to .env and add a real secret key.'
-    )
+    raise ValueError('SECRET_KEY environment variable is not set.')
 
-# Fix 13: DEBUG is False by default — only True if env explicitly says so
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-# Fix 13: ALLOWED_HOSTS from env, comma-separated
 ALLOWED_HOSTS = [
     h.strip()
-    for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+    for h in os.environ.get(
+        'ALLOWED_HOSTS',
+        'localhost,127.0.0.1'
+    ).split(',')
     if h.strip()
 ]
 
@@ -40,21 +35,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Third-party
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
-
-    # Local
     'api',
 ]
 
 # ─── Middleware ────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',       # ← must be FIRST
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -84,7 +76,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'portfolio_backend.wsgi.application'
 
 # ─── Database ─────────────────────────────────────────────────────────────────
-# Fix 13: All DB credentials from env — no hardcoded defaults for sensitive data
+# Default to PostgreSQL using individual env vars
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -95,6 +87,14 @@ DATABASES = {
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
+
+# Override with DATABASE_URL if available (Render production)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES['default'] = dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=600
+    )
 
 # ─── Password Validation ──────────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
@@ -110,9 +110,11 @@ TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
-# ─── Static & Default PK ──────────────────────────────────────────────────────
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+# ─── Static Files ─────────────────────────────────────────────────────────────
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ─── Django REST Framework ────────────────────────────────────────────────────
@@ -131,8 +133,8 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '60/minute',    # public reads
-        'user': '300/minute',   # authenticated admin writes
+        'anon': '60/minute',
+        'user': '300/minute',
     },
 }
 
@@ -146,7 +148,6 @@ SIMPLE_JWT = {
 }
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
-# Fix 13: CORS origins locked to env var, no wildcard defaults
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     o.strip()
@@ -169,15 +170,8 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# ─── Production Security Headers (active when DEBUG=False) ────────────────────
+# ─── Production Security ──────────────────────────────────────────────────────
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
-    # Uncomment when HTTPS is configured on your server:
-    # SECURE_SSL_REDIRECT = True
-    # SESSION_COOKIE_SECURE = True
-    # CSRF_COOKIE_SECURE = True
-    # SECURE_HSTS_SECONDS = 31536000
-    # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    # SECURE_HSTS_PRELOAD = True
