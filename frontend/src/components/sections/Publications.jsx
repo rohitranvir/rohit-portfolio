@@ -74,7 +74,7 @@ export default function Publications() {
                     </div>
 
                     <motion.a
-                        href="#"
+                        href="https://www.ijisrt.com/assets/upload/files/IJISRT25FEB1017.pdf"
                         className="btn-ghost"
                         style={{ padding: '10px 24px', fontSize: '0.8rem' }}
                         whileHover={{ scale: 1.05, borderColor: 'var(--gold)' }}
