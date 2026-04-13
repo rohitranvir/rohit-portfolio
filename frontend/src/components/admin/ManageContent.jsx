@@ -73,7 +73,12 @@ export default function ManageContent() {
             }
             flash('Experience saved!');
         } catch (err) {
-            setError(err.response?.data?.detail || 'Failed to save experience');
+            if (err.response?.data && typeof err.response.data === 'object' && !err.response.data.detail) {
+                const msgs = Object.entries(err.response.data).map(([k, v]) => `${k}: ${v}`).join(' | ');
+                setError(msgs);
+            } else {
+                setError(err.response?.data?.detail || 'Failed to save experience');
+            }
         } finally {
             setSaving(false);
         }
