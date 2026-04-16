@@ -28,11 +28,16 @@ from .serializers import (
 
 # ─── Custom Permission ────────────────────────────────────────────────────────
 class IsAdminOrReadOnly(permissions.BasePermission):
-    """Allow GET for everyone, mutating methods only for is_staff users."""
+    """
+    Allow GET/HEAD/OPTIONS for everyone.
+    Allow POST/PUT/PATCH/DELETE only for authenticated users (JWT).
+    NOTE: We check is_authenticated only — NOT is_staff — so any user
+    with a valid JWT token can perform admin CRUD.
+    """
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user and request.user.is_authenticated and request.user.is_staff
+        return bool(request.user and request.user.is_authenticated)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -53,10 +58,14 @@ class AdminLoginView(TokenObtainPairView):
 class ProjectListCreateView(generics.ListCreateAPIView):
     """
     GET  /api/projects/           → all visible projects (public)
-    POST /api/projects/           → create project (admin only)
+    POST /api/projects/           → create project (authenticated admin)
     """
     serializer_class = ProjectSerializer
-    permission_classes = [IsAdminOrReadOnly]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         qs = Project.objects.all()
@@ -73,22 +82,26 @@ class ProjectListCreateView(generics.ListCreateAPIView):
 class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET    /api/projects/<id>/    (public)
-    PUT    /api/projects/<id>/    (admin)
-    PATCH  /api/projects/<id>/    (admin)
-    DELETE /api/projects/<id>/    (admin)
+    PUT    /api/projects/<id>/    (authenticated admin)
+    PATCH  /api/projects/<id>/    (authenticated admin)
+    DELETE /api/projects/<id>/    (authenticated admin)
     """
     queryset = Project.objects.all()
     serializer_class = ProjectDetailSerializer
-    permission_classes = [IsAdminOrReadOnly]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
 
 class ProjectBySlugView(generics.RetrieveUpdateAPIView):
     serializer_class = ProjectDetailSerializer
     lookup_field = 'slug'
-    
+
     def get_queryset(self):
         return Project.objects.all()
-    
+
     def get_permissions(self):
         if self.request.method == 'GET':
             return [permissions.AllowAny()]
@@ -136,18 +149,26 @@ class SkillDetailView(generics.RetrieveUpdateDestroyAPIView):
 class ExperienceListCreateView(generics.ListCreateAPIView):
     """
     GET  /api/experience/         (public)
-    POST /api/experience/         (admin)
+    POST /api/experience/         (authenticated admin)
     """
     queryset = Experience.objects.all()
     serializer_class = ExperienceSerializer
-    permission_classes = [IsAdminOrReadOnly]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
 
 class ExperienceDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET / PUT / PATCH / DELETE /api/experience/<id>/"""
     queryset = Experience.objects.all()
     serializer_class = ExperienceSerializer
-    permission_classes = [IsAdminOrReadOnly]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -156,18 +177,26 @@ class ExperienceDetailView(generics.RetrieveUpdateDestroyAPIView):
 class CertificationListCreateView(generics.ListCreateAPIView):
     """
     GET  /api/certifications/     (public)
-    POST /api/certifications/     (admin)
+    POST /api/certifications/     (authenticated admin)
     """
     queryset = Certification.objects.all()
     serializer_class = CertificationSerializer
-    permission_classes = [IsAdminOrReadOnly]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
 
 class CertificationDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET / PUT / PATCH / DELETE /api/certifications/<id>/"""
     queryset = Certification.objects.all()
     serializer_class = CertificationSerializer
-    permission_classes = [IsAdminOrReadOnly]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -1,143 +1,204 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Save, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, Edit3, X, Save } from 'lucide-react';
+
+function Toast({ message, type, onClose }) {
+    useEffect(() => {
+        const t = setTimeout(onClose, 3000);
+        return () => clearTimeout(t);
+    }, [onClose]);
+    return (
+        <div style={{
+            position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+            background: type === 'error' ? '#ef4444' : 'var(--gold)',
+            color: type === 'error' ? 'white' : '#080808',
+            padding: '12px 24px', borderRadius: 8, zIndex: 100000,
+            fontWeight: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+            {message}
+        </div>
+    );
+}
+
+const emptyCert = { name: '', issuer: '', date: '', url: '' };
 
 export default function ManageCertifications() {
     const [certs, setCerts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [toast, setToast] = useState(null);
+    // editing holds { index, data } for the cert currently being edited
+    const [editing, setEditing] = useState(null);
     const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-    const [error, setError] = useState('');
-    // Track which entries are new (no id yet)
-    const [newCerts, setNewCerts] = useState([]);
+    // adding holds the new cert form data
+    const [adding, setAdding] = useState(null);
+
+    const showToast = (message, type = 'success') => setToast({ message, type });
 
     useEffect(() => { fetchCerts(); }, []);
 
     async function fetchCerts() {
+        setLoading(true);
         try {
             const res = await api.get('/certifications/');
             setCerts(res.data || []);
-        } catch (err) {
-            setError('Failed to load certifications');
+        } catch {
+            showToast('Failed to load certifications', 'error');
         } finally {
             setLoading(false);
         }
     }
 
-    async function handleSave() {
+    // ── CREATE ────────────────────────────────────────────────────────────────
+    async function handleCreate() {
+        if (!adding?.name) {
+            showToast('Certification name is required', 'error');
+            return;
+        }
         setSaving(true);
-        setError('');
         try {
-            // Save all new certs (no id)
-            const toCreate = certs.filter(c => !c.id && c.name);
-            for (const cert of toCreate) {
-                const res = await api.post('/certifications/', {
-                    name: cert.name,
-                    issuer: cert.issuer || cert.platform || '',
-                    date: cert.date || '',
-                    url: cert.url || cert.link || '',
-                });
-                // Replace placeholder with real object
-                setCerts(prev => prev.map(c => c === cert ? res.data : c));
-            }
-
-            // Update existing certs
-            const toUpdate = certs.filter(c => c.id && c._dirty);
-            for (const cert of toUpdate) {
-                await api.put(`/certifications/${cert.id}/`, {
-                    name: cert.name,
-                    issuer: cert.issuer || cert.platform || '',
-                    date: cert.date || '',
-                    url: cert.url || cert.link || '',
-                });
-            }
-
-            setSaved(true);
-            setTimeout(() => setSaved(false), 2000);
-            await fetchCerts();
+            const res = await api.post('/certifications/', {
+                name: adding.name,
+                issuer: adding.issuer || '',
+                date: adding.date || '',
+                url: adding.url || '',
+            });
+            setCerts(prev => [...prev, res.data]);
+            setAdding(null);
+            showToast('Certification added successfully');
         } catch (err) {
-            setError(err.response?.data?.detail || 'Failed to save certifications');
+            showToast(err.response?.data?.detail || 'Failed to add certification', 'error');
         } finally {
             setSaving(false);
         }
     }
 
-    async function removeCert(cert) {
-        if (cert.id) {
-            try {
-                await api.delete(`/certifications/${cert.id}/`);
-            } catch {
-                setError('Failed to delete certification');
-                return;
-            }
+    // ── UPDATE ────────────────────────────────────────────────────────────────
+    async function handleUpdate() {
+        if (!editing?.data?.name) {
+            showToast('Certification name is required', 'error');
+            return;
         }
-        setCerts(prev => prev.filter(c => c !== cert));
+        setSaving(true);
+        try {
+            const res = await api.put(`/certifications/${editing.data.id}/`, {
+                name: editing.data.name,
+                issuer: editing.data.issuer || '',
+                date: editing.data.date || '',
+                url: editing.data.url || '',
+            });
+            setCerts(prev => prev.map(c => c.id === editing.data.id ? res.data : c));
+            setEditing(null);
+            showToast('Certification updated successfully');
+        } catch (err) {
+            showToast(err.response?.data?.detail || 'Failed to update certification', 'error');
+        } finally {
+            setSaving(false);
+        }
     }
 
-    function addCert() {
-        setCerts(prev => [...prev, { name: '', issuer: '', date: '', url: '' }]);
-    }
-
-    function updateCert(index, field, value) {
-        setCerts(prev => {
-            const updated = [...prev];
-            updated[index] = { ...updated[index], [field]: value, _dirty: true };
-            return updated;
-        });
+    // ── DELETE ────────────────────────────────────────────────────────────────
+    async function handleDelete(cert) {
+        if (!window.confirm(`Delete "${cert.name}"?`)) return;
+        try {
+            await api.delete(`/certifications/${cert.id}/`);
+            setCerts(prev => prev.filter(c => c.id !== cert.id));
+            showToast('Certification deleted');
+        } catch {
+            showToast('Failed to delete certification', 'error');
+        }
     }
 
     if (loading) return <p style={{ color: 'var(--text-muted)' }}>Loading certifications…</p>;
 
     return (
         <div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <h1 className="font-display" style={{ fontSize: '2rem', fontWeight: 500 }}>Manage Certifications</h1>
-                <button className="btn-gold" style={{ padding: '10px 24px', fontSize: '0.85rem' }} onClick={handleSave} disabled={saving}>
-                    {saving ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</> : <><Save size={16} /> Save Changes</>}
+                <div>
+                    <h1 className="font-display" style={{ fontSize: '2rem', fontWeight: 500 }}>Manage Certifications</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{certs.length} certifications total</p>
+                </div>
+                <button className="btn-gold" style={{ padding: '10px 20px', fontSize: '0.8rem' }}
+                    onClick={() => { setAdding({ ...emptyCert }); setEditing(null); }}>
+                    <Plus size={16} /> Add Certification
                 </button>
             </div>
 
-            {saved && <p style={{ color: '#22c55e', fontSize: '0.85rem', marginBottom: 16, padding: '8px 16px', background: 'rgba(34,197,94,0.08)', borderRadius: 6, display: 'inline-block' }}>✓ Saved to database!</p>}
-            {error && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: 16 }}>{error}</p>}
+            {/* Add Form */}
+            {adding && (
+                <div className="glass-card" style={{ padding: 24, marginBottom: 24, border: '1px solid var(--gold)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--gold)' }}>New Certification</h3>
+                        <button onClick={() => setAdding(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={18} /></button>
+                    </div>
+                    <CertForm data={adding} onChange={setAdding} />
+                    <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                        <button className="btn-gold" style={{ fontSize: '0.8rem', padding: '10px 20px' }} onClick={handleCreate} disabled={saving}>
+                            {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</> : <><Save size={14} /> Save</>}
+                        </button>
+                        <button className="btn-ghost" style={{ fontSize: '0.8rem', padding: '10px 20px' }} onClick={() => setAdding(null)}>Cancel</button>
+                    </div>
+                </div>
+            )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {certs.map((cert, index) => (
-                    <div key={cert.id || index} className="glass-card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                            <div>
-                                <label className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Certification Name</label>
-                                <input className="admin-input" placeholder="e.g. Machine Learning Specialization" value={cert.name || ''} onChange={e => updateCert(index, 'name', e.target.value)} style={{ marginBottom: 0 }} />
+            {/* List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {certs.map(cert => (
+                    <div key={cert.id} className="glass-card" style={{ padding: 24 }}>
+                        {editing?.data?.id === cert.id ? (
+                            <>
+                                <CertForm data={editing.data} onChange={d => setEditing({ ...editing, data: d })} />
+                                <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                                    <button className="btn-gold" style={{ fontSize: '0.8rem', padding: '10px 20px' }} onClick={handleUpdate} disabled={saving}>
+                                        {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</> : <><Save size={14} /> Save</>}
+                                    </button>
+                                    <button className="btn-ghost" style={{ fontSize: '0.8rem', padding: '10px 20px' }} onClick={() => setEditing(null)}>Cancel</button>
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 4 }}>{cert.name}</h3>
+                                    <p className="font-mono" style={{ fontSize: '0.75rem', color: 'var(--gold)', marginBottom: 4 }}>{cert.issuer}</p>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{cert.date}</p>
+                                    {cert.url && <a href={cert.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--gold)', textDecoration: 'underline' }}>Verify →</a>}
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button onClick={() => { setEditing({ data: { ...cert } }); setAdding(null); }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)' }}>
+                                        <Edit3 size={16} />
+                                    </button>
+                                    <button onClick={() => handleDelete(cert)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </div>
-                            <div>
-                                <label className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Issuer / Platform</label>
-                                <input className="admin-input" placeholder="e.g. Coursera" value={cert.issuer || ''} onChange={e => updateCert(index, 'issuer', e.target.value)} style={{ marginBottom: 0 }} />
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
-                            <div>
-                                <label className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Date / Year</label>
-                                <input className="admin-input" placeholder="e.g. Mar 2025" value={cert.date || ''} onChange={e => updateCert(index, 'date', e.target.value)} style={{ marginBottom: 0 }} />
-                            </div>
-                            <div>
-                                <label className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Verification URL</label>
-                                <input className="admin-input" placeholder="https://" value={cert.url || ''} onChange={e => updateCert(index, 'url', e.target.value)} style={{ marginBottom: 0 }} />
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                            <button onClick={() => removeCert(cert)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
-                                <Trash2 size={14} /> Remove
-                            </button>
-                        </div>
+                        )}
                     </div>
                 ))}
-
-                <button className="btn-ghost" style={{ fontSize: '0.8rem', padding: '10px 20px', alignSelf: 'flex-start' }} onClick={addCert}>
-                    <Plus size={14} /> Add Certification
-                </button>
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+    );
+}
+
+function CertForm({ data, onChange }) {
+    const field = (key, label, placeholder, type = 'text') => (
+        <div>
+            <label className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>{label}</label>
+            <input className="admin-input" type={type} placeholder={placeholder} value={data[key] || ''}
+                onChange={e => onChange({ ...data, [key]: e.target.value })} style={{ marginBottom: 0 }} />
+        </div>
+    );
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {field('name', 'Certification Name', 'e.g. Machine Learning Specialization')}
+            {field('issuer', 'Issuer / Platform', 'e.g. Coursera')}
+            {field('date', 'Date / Year', 'e.g. Mar 2025')}
+            {field('url', 'Verification URL', 'https://', 'url')}
         </div>
     );
 }

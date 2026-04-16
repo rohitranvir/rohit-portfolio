@@ -1,21 +1,43 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Mail, Trash2, Eye } from 'lucide-react';
+import { Mail, Trash2, Eye, EyeOff, Loader2 } from 'lucide-react';
+
+function Toast({ message, type, onClose }) {
+    useEffect(() => {
+        const t = setTimeout(onClose, 3000);
+        return () => clearTimeout(t);
+    }, [onClose]);
+    return (
+        <div style={{
+            position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+            background: type === 'error' ? '#ef4444' : 'var(--gold)',
+            color: type === 'error' ? 'white' : '#080808',
+            padding: '12px 24px', borderRadius: 8, zIndex: 100000, fontWeight: 600,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+        }}>
+            {message}
+        </div>
+    );
+}
 
 export default function Messages() {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [toast, setToast] = useState(null);
+    const [deletingId, setDeletingId] = useState(null);
 
-    useEffect(() => {
-        fetchMessages();
-    }, []);
+    const showToast = (message, type = 'success') => setToast({ message, type });
+
+    useEffect(() => { fetchMessages(); }, []);
 
     async function fetchMessages() {
+        setLoading(true);
         try {
             const res = await api.get('/messages/admin/');
             setMessages(res.data || []);
         } catch (err) {
             console.error('Failed to load messages:', err);
+            showToast('Failed to load messages', 'error');
         } finally {
             setLoading(false);
         }
@@ -23,20 +45,27 @@ export default function Messages() {
 
     async function toggleRead(id, currentRead) {
         try {
-            await api.patch(`/messages/admin/${id}/`, { read: !currentRead });
+            // Optimistic update
             setMessages(prev => prev.map(m => m.id === id ? { ...m, read: !currentRead } : m));
+            await api.patch(`/messages/admin/${id}/`, { read: !currentRead });
         } catch (err) {
-            console.error('Failed to update message:', err);
+            // Revert on failure
+            setMessages(prev => prev.map(m => m.id === id ? { ...m, read: currentRead } : m));
+            showToast('Failed to update message', 'error');
         }
     }
 
     async function remove(id) {
-        if (!confirm('Delete this message?')) return;
+        if (!window.confirm('Delete this message permanently?')) return;
+        setDeletingId(id);
         try {
             await api.delete(`/messages/admin/${id}/`);
             setMessages(prev => prev.filter(m => m.id !== id));
-        } catch (err) {
-            console.error('Failed to delete message:', err);
+            showToast('Message deleted');
+        } catch {
+            showToast('Failed to delete message', 'error');
+        } finally {
+            setDeletingId(null);
         }
     }
 
@@ -48,28 +77,39 @@ export default function Messages() {
         const blob = new Blob([header + rows], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = 'messages.csv';
-        a.click();
+        a.href = url; a.download = 'messages.csv'; a.click();
         URL.revokeObjectURL(url);
     }
 
     if (loading) return <p style={{ color: 'var(--text-muted)' }}>Loading messages…</p>;
 
+    const unread = messages.filter(m => !m.read).length;
+
     return (
         <div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                 <div>
                     <h1 className="font-display" style={{ fontSize: '2rem', fontWeight: 500 }}>Messages</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                        {messages.length} messages • {messages.filter(m => !m.read).length} unread
+                        {messages.length} messages
+                        {unread > 0 && <span style={{ color: 'var(--gold)', marginLeft: 8 }}>● {unread} unread</span>}
                     </p>
                 </div>
-                {messages.length > 0 && (
-                    <button className="btn-ghost" style={{ fontSize: '0.8rem', padding: '10px 20px' }} onClick={exportCSV}>
-                        Export CSV
-                    </button>
-                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                    {unread > 0 && (
+                        <button className="btn-ghost" style={{ fontSize: '0.8rem', padding: '10px 20px' }}
+                            onClick={() => messages.filter(m => !m.read).forEach(m => toggleRead(m.id, false))}>
+                            Mark All Read
+                        </button>
+                    )}
+                    {messages.length > 0 && (
+                        <button className="btn-ghost" style={{ fontSize: '0.8rem', padding: '10px 20px' }} onClick={exportCSV}>
+                            Export CSV
+                        </button>
+                    )}
+                </div>
             </div>
 
             {messages.length === 0 ? (
@@ -80,21 +120,29 @@ export default function Messages() {
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {messages.map(msg => (
-                        <div key={msg.id} className="glass-card" style={{ padding: '20px 24px', borderLeft: `3px solid ${msg.read ? 'var(--border)' : 'var(--gold)'}` }}>
+                        <div key={msg.id} className="glass-card"
+                            style={{ padding: '20px 24px', borderLeft: `3px solid ${msg.read ? 'var(--border)' : 'var(--gold)'}`, opacity: deletingId === msg.id ? 0.5 : 1 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                                 <div>
-                                    <span style={{ fontWeight: 500, fontSize: '0.95rem' }}>{msg.name}</span>
+                                    <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{msg.name}</span>
+                                    {!msg.read && <span style={{ marginLeft: 8, fontSize: '0.65rem', color: 'var(--gold)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>● NEW</span>}
                                     <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: '0.8rem' }}>{msg.email}</span>
                                 </div>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                     <span className="font-mono" style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
                                         {msg.timestamp ? new Date(msg.timestamp).toLocaleDateString('en-IN') : ''}
                                     </span>
-                                    <button onClick={() => toggleRead(msg.id, msg.read)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: msg.read ? 'var(--text-muted)' : 'var(--gold)' }}>
-                                        <Eye size={16} />
+                                    <button
+                                        onClick={() => toggleRead(msg.id, msg.read)}
+                                        title={msg.read ? 'Mark unread' : 'Mark read'}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: msg.read ? 'var(--text-muted)' : 'var(--gold)' }}>
+                                        {msg.read ? <EyeOff size={16} /> : <Eye size={16} />}
                                     </button>
-                                    <button onClick={() => remove(msg.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
-                                        <Trash2 size={16} />
+                                    <button
+                                        onClick={() => remove(msg.id)}
+                                        disabled={deletingId === msg.id}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
+                                        {deletingId === msg.id ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={16} />}
                                     </button>
                                 </div>
                             </div>
@@ -108,6 +156,7 @@ export default function Messages() {
                     ))}
                 </div>
             )}
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 }
